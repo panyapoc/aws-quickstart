@@ -8,7 +8,7 @@ In this example, we will be exploring AWS SQS through the AWS Console along with
 2. Sending message to queue | 10 mins
 3. Receiving message and deleteing message from queue | 5 mins
 4. Using Dead-letter Queues (DLQ) | 15 mins
-5. Recieve message using multiple long polling consumers | 10 mins (optional)
+5. Recieve message using long polling consumers | 10 mins (optional)
 
 This lab is based on the examples provided in the [AWS Developer Guide for Amazon SQS](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/sqs-examples.html).
 
@@ -148,7 +148,7 @@ Reference
 - [SQS Basic Architecture and Visibility Timeout on Recieves](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-basic-architecture.html)
 - [AWS SDK for JavaScript - AWS.SQS recieveMessage](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/SQS.html#receiveMessage-property)
 
-## 5. Using Dead-letter Queues (DLQ)
+## 4. Using Dead-letter Queues (DLQ)
 
 "Dead Letter Queue – An SQS queue that will receive the messages which were not successfully processed after maximum number of receives by consumers."
 
@@ -184,6 +184,8 @@ In this section, we will mimic message that has gone unprocessed (on the consume
 
 <details>
 <summary><b>See Spoilers</b></summary>
+
+In this example,
 
 - Explicitly set the `VisibilityTimeout` to 2 (second)
   - For optimal performance, set the visibility timeout to be larger than the AWS SDK read timeout.
@@ -237,9 +239,7 @@ Reference
 - [Amazon SQS visibility timeout](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html)
 - [Developer Guide on Amazon SQS Dead-letter Queues](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html)
 
-## 6. Recieve message using multiple long polling consumers
-
-Recieve messages in bulk by changing the `MaxNumberOfMessages` [1,10]
+## 5. Recieve message using long polling consumers
 
 Amazon SQS provides short polling and long polling to receive messages from a queue. By default, queues use short polling.
 
@@ -249,7 +249,7 @@ When the wait time for the ReceiveMessage API action is greater than 0, long pol
 - Reduce false empty responses by querying all—rather than a subset of—Amazon SQS servers.
 - Return messages as soon as they become available.
 
-asyncio promise long-polling-sqs
+In this example, the Node.js module use long-polling to wait until the messages is available in a queue before sending a response. The recieved messages are then deleted in batch by calling the `deleteMessageBatch` method. 
 
 ```node
 // Load the AWS SDK for Node.js
@@ -262,9 +262,12 @@ var sqs = new AWS.SQS({apiVersion: '2012-11-05'});
 
 var queueURL = "SQS_QUEUE_URL";
 
+var waitTimeSeconds = 20
+
 var params = {
  AttributeNames: [
-    "SentTimestamp"
+    "SentTimestamp",
+    "ApproximateReceiveCount"
  ],
  MaxNumberOfMessages: 10,
  MessageAttributeNames: [
@@ -272,19 +275,20 @@ var params = {
  ],
  QueueUrl: queueURL,
  VisibilityTimeout: 30,
- WaitTimeSeconds: 20
+ WaitTimeSeconds: waitTimeSeconds
 };
 
 setInterval(function() {
-    var recieveMessagePromise = await sqs.receiveMessage(params, function(err, data) {
+    sqs.receiveMessage(params, function(err, data) {
+      console.log('Polling')
       if (err) {
         console.log("Receive Error", err);
       } else if (data.Messages) {
-        var deleteParams = {
+        var deleteBatchParams = {
           QueueUrl: queueURL,
-          ReceiptHandle: data.Messages[0].ReceiptHandle
+          Entries: data.Messages.map(item => { return { Id: item.MessageId, ReceiptHandle: item.ReceiptHandle } })
         };
-        sqs.deleteMessage(deleteParams, function(err, data) {
+        sqs.deleteMessageBatch(deleteBatchParams, function(err, data) {
           if (err) {
             console.log("Delete Error", err);
           } else {
@@ -293,12 +297,7 @@ setInterval(function() {
         });
       }
     });
-    recieveMessagePromise.promise().then(function(data) {
-      console.log('Success');
-    }).catch(function(err) {
-      console.log(err);
-    });
-}, 1000*20;
+}, waitTimeSeconds*1000);
 ```
 
 **Using long polling**
@@ -307,6 +306,7 @@ The `ReceiveMessage` call sets `WaitTimeSeconds` not equal to `0` or queue attri
 Reference
 
 - [Amazon SQS short and long polling](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-short-and-long-polling.html)
+- [deleteMessageBatch operation](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/SQS.html#deleteMessageBatch-property)
 - [Using JavaScript Promises with AWS.Request.promise](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/using-promises.html)
 - [Using async/await](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/using-async-await.html)
 
