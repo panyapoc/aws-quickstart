@@ -8,7 +8,7 @@ In this example, we will be exploring AWS SQS through the AWS Console along with
 2. Sending message to queue | 10 mins
 3. Receiving message and deleteing message from queue | 5 mins
 4. Using Dead-letter Queues (DLQ) | 15 mins
-5. Recieve message using long polling consumers | 10 mins (optional)
+5. Receive messages using long polling consumers | 10 mins (optional)
 
 This lab is based on the examples provided in the [AWS Developer Guide for Amazon SQS](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/sqs-examples.html).
 
@@ -164,35 +164,36 @@ In this section, we will mimic message that has gone unprocessed (on the consume
   - SQS > "The Source Queue > Edit > Enable "Dead-letter queues" > Specify DLQ name and the maximum recieves
 - **Create a new Node.js module to intentionally recieve message without deleting the message afterward**
   - Expected result,
-    - Messages recieved by this Node.js module without being deleted for the number of maximum recieves will be redrive to the dead-letter queue.
-    - The duration in which the message will redrive to DLQ would be approximately `visibility timeout duration * number of maximum recieves` seconds.
+    - Message recieved by this Node.js module wouldn't be deleted and will be placed back to the queue after the visibility timeout duration,
+    - When the approximate recieve count of the message is more than the maximum recieves, the message will be redrive to the dead-letter queue.
   - Based on the existing `recieveMessage` module from the previous section,
-    - Call `recieveMessage` method to retrieve messages from queue,
-    - Remove call to the `deleteMessage` method which is required in indicating message has been processed by the consumer,
-    - To speed up the process by recieving message with surprisingly small `VisibilityTimeout` (seconds)
-      - When receiving messages, you can also set a special visibility timeout for the returned messages without changing the overall queue timeout.
-    - Simply log the message handle ID and approximate recieve count
-      - The approximate recieve count is obtained by adding `ApproximateReceiveCount` to the list of `AttributeNames` in the request parameter of recieve message.
-        - `var approximateReceiveCount = data.Messages[0].Attributes.ApproximateReceiveCount`
-- **Ensure a test message is available the source queue**
+    - Remove or comment out the call to the `deleteMessage` method (indicating message has been successfully processed by the consumer)
+    - Speed up the process by recieving message with surprisingly small visibility timeout
+      - When receiving messages, you can also set a special visibility timeout, `VisibilityTimeout` parameter (seconds), for the returned messages without changing the overall queue timeout.
+    - Log the message handle and approximate recieve count
+      - The approximate recieve count is obtained by adding `ApproximateReceiveCount` to the list of `AttributeNames` in the request parameters object of recieve message API.
+      - `console.log("Pass", receiptHandle, approximateReceiveCount)`
+- **Ensure a test message is available in the source queue**
   - If not, send a test message (section #2)
 - **Run the Node.js module and check the message count in DLQ**
-  - Run the module through the number of 'maximum recieves' per message,
-  - In each execution, the console should log a message handle ID with its current approximate recieve count,
-  - Once no message is returned (when message's approximate recieve count > maximum recieves), check the messages count in DLQ queue,
-    - On AWS Console : SQS > The DLQ Queue > Details section,> More > Messages available
+  - Run the module by the number of 'maximum recieves' times (per message),
+  - In each execution, the console should log a unique message handle with its current approximate recieve count,
+  - Once no message is returned (or when message's approximate recieve count > maximum recieves), all of the message should now be in the DLQ,
+    - Check the messages count in the DLQ queue : AWS Console > SQS > The DLQ Queue > Details section,> More > Messages available
 
 <details>
 <summary><b>See Spoilers</b></summary>
 
-In this example,
+**In this example,**
 
-- Explicitly set the `VisibilityTimeout` to 2 (second)
+- The `VisibilityTimeout` is explicitly set to `2` (seconds) - After being recieved, the message will stay hidden from other consumers for 2 seconds before being visible again.
   - For optimal performance, set the visibility timeout to be larger than the AWS SDK read timeout.
-- Remove call to `deleteMessage` method.
-- For logging, add attribute `ApproximateReceiveCount` to the request parameter's attribute name.
+- Call to `deleteMessage` method was removed - Each message is expected to be deleted after being processed successfully.
+- Attribute `ApproximateReceiveCount` was added to the parameter as one of the attribute name.
+- Logging was added to see the message handle and its approximate recieve count.
 
 ```node
+
 // Load the AWS SDK for Node.js
 var AWS = require('aws-sdk');
 // Set the region
@@ -239,7 +240,7 @@ Reference
 - [Amazon SQS visibility timeout](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html)
 - [Developer Guide on Amazon SQS Dead-letter Queues](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html)
 
-## 5. Recieve message using long polling consumers
+## 5. Receive messages using long polling consumers
 
 Amazon SQS provides short polling and long polling to receive messages from a queue. By default, queues use short polling.
 
@@ -249,9 +250,16 @@ When the wait time for the ReceiveMessage API action is greater than 0, long pol
 - Reduce false empty responses by querying all—rather than a subset of—Amazon SQS servers.
 - Return messages as soon as they become available.
 
-In this example, the Node.js module use long-polling to wait until the messages is available in a queue before sending a response. The recieved messages are then deleted in batch by calling the `deleteMessageBatch` method. 
+In this example, the Node.js module is configured to use long-polling to reduce empty response by allowing Amazon SQS to wait until the messages are available in a queue before sending a response. The recieved messages are then deleted in batch by calling the `deleteMessageBatch` method.
+
+- For recieveMessage API, `WaitTimeSeconds` should be more than `0` seconds to use long polling,
+- The maximum number of message, `MaxNumberOfMessages`, to be recieved per request could range from `1` to `10`.
+
+<details>
+<summary><b>See Spoilers</b></summary>
 
 ```node
+
 // Load the AWS SDK for Node.js
 var AWS = require('aws-sdk');
 // Set the region
@@ -298,7 +306,10 @@ setInterval(function() {
       }
     });
 }, waitTimeSeconds*1000);
+
 ```
+
+</details>
 
 **Using long polling**
 The `ReceiveMessage` call sets `WaitTimeSeconds` not equal to `0` or queue attribute `ReceiveMessageWaitTimeSeconds` is not set to `0`.
