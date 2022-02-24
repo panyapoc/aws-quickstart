@@ -22,6 +22,9 @@ This lab is based on the examples provided in the [AWS Developer Guide for Amazo
 - Create a development environment (recommend that you choose the option to Create a new instance for environment (EC2))
 - In the environment, install the AWS SDK for JavaScript using `npm install aws-sdk`
 
+
+---
+
 ## 1. Create a SQS queue
 
 **Using the [Amazon SQS on AWS Console](https://ap-southeast-1.console.aws.amazon.com/sqs/v2/home?region=ap-southeast-1#/)**
@@ -38,7 +41,7 @@ Reference
 
 **In your AWS Cloud9 environment,** create a Node.js module to call the `sendMessage` method. The callback returns the unique ID of the message.
 
-```node
+``` javascript
 // Load the AWS SDK for Node.js
 var AWS = require('aws-sdk');
 // Set the region 
@@ -93,7 +96,7 @@ Call the `receiveMessage` method to recieve only a maximum of `1` message from t
 
 Create another JSON object containing the parameters needed to delete the message, which are the URL of the queue and the `ReceiptHandle` value. Call the `deleteMessage` method to delete the message you received.
 
-```node
+``` javascript
 // Load the AWS SDK for Node.js
 var AWS = require('aws-sdk');
 // Set the region
@@ -192,7 +195,7 @@ In this example,
 - Remove call to `deleteMessage` method.
 - For logging, add attribute `ApproximateReceiveCount` to the request parameter's attribute name.
 
-```node
+```javascript
 // Load the AWS SDK for Node.js
 var AWS = require('aws-sdk');
 // Set the region
@@ -251,7 +254,7 @@ When the wait time for the ReceiveMessage API action is greater than 0, long pol
 
 In this example, the Node.js module use long-polling to wait until the messages is available in a queue before sending a response. The recieved messages are then deleted in batch by calling the `deleteMessageBatch` method. 
 
-```node
+``` javascript
 // Load the AWS SDK for Node.js
 var AWS = require('aws-sdk');
 // Set the region
@@ -319,3 +322,150 @@ Reference
 [Best practices for Amazon SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-best-practices.html)
 
 [Amazon SQS batch actions](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-batch-api-actions.html) - Reduce costs or manipulate up to 10 messages with a single action
+
+--- 
+
+## Step 1: Create a topic
+1. Goto the **Amazon SNS** console.
+2. On the Topics page, choose Create topic.
+3. By default, the console creates a FIFO topic. Choose **Standard**.
+4. In the Details section, enter a Name for the topic, such as **MyTopic**.
+5. Scroll to the end of the form and choose Create topic.
+
+## Step 2: Create a subscription to the topic
+1. In the left navigation pane, choose Subscriptions.
+2. On the Subscriptions page, choose Create subscription.
+3. On the Create subscription page, choose the Topic ARN field to see a list of the topics in your AWS account.
+4. Choose the topic that you created in the previous step.
+5. For Protocol, choose Email.
+6. For Endpoint, enter an email address that can receive notifications.
+7. Choose Create subscription.
+8. The console opens the new subscription's Details page.
+9. Check your email inbox and choose Confirm subscription in the email from AWS Notifications. The sender ID is usually "no-reply@sns.amazonaws.com".
+10. Amazon SNS opens your web browser and displays a subscription confirmation with your subscription ID.
+
+## Step 3: Publish a message to the topic
+1. In the left navigation pane, choose Topics.
+2. On the Topics page, choose the topic that you created earlier, and then choose Publish message.
+3. The console opens the Publish message to topic page.
+4. (Optional) In the Message details section, enter a Subject, such as:
+
+``` Hello from Amazon SNS!```
+
+5. In the **Message body** section, choose Identical payload for all delivery protocols, and then enter a message body, such as:
+
+```Publishing a message to an SNS topic.```
+
+6. Choose **Publish message**.
+7. The message is published to the topic, and the console opens the topic's Details page.
+8. Check your email inbox and verify that you received an email from Amazon SNS with the published message.
+
+## Step 4: Send Message with Node JS SDK
+
+Pass the parameters to the publish method of the AWS.SNS client class. Create a promise for invoking an Amazon SNS service object, passing the parameters object. Then handle the response in the promise callback
+
+``` javascript
+// Load the AWS SDK for Node.js
+var AWS = require('aws-sdk');
+// Set region
+AWS.config.update({region: 'REGION'});
+
+// Create publish parameters
+var params = {
+  Message: 'MESSAGE_TEXT', /* required */
+  TopicArn: 'TOPIC_ARN'
+};
+
+// Create promise and SNS service object
+var publishTextPromise = new AWS.SNS({apiVersion: '2010-03-31'}).publish(params).promise();
+
+// Handle promise's fulfilled/rejected states
+publishTextPromise.then(
+  function(data) {
+    console.log(`Message ${params.Message} sent to the topic ${params.TopicArn}`);
+    console.log("MessageID is " + data.MessageId);
+  }).catch(
+    function(err) {
+    console.error(err, err.stack);
+  });
+```
+
+## Step 5: Subscribe SQS to a topic
+
+1. In the left navigation pane, choose Subscriptions.
+2. On the Subscriptions page, choose Create subscription.
+3. On the Create subscription page, choose the Topic ARN field to see a list of the topics in your AWS account.
+4. Choose the topic that you created in the previous step.
+5. For Protocol, choose **Amazon SQS**.
+6. For Endpoint, enter an SQS arn from SQS Lab
+7. Choose Create subscription.
+8. Go to Topic page copy **Topic ARN** (example ``arn:aws:sns:ap-southeast-1:accid:MyTopic``)
+
+## Step 6 : Give permission to the Amazon SNS topic to send messages to the Amazon SQS queue
+
+1. Go to **Amazon SQS** console page
+2. Select the same queue as in step 4
+3. In the **Access policy** section, define who can access your queue.
+    * Add a condition that allows the action for the topic.
+    * Set Principal to be the Amazon SNS service, as shown in the example below.
+    * Add this statement to the exsisting policy
+
+```json
+{
+  "Sid": "AllowMsgFromTopic",
+  "Effect": "Allow",
+  "Principal": {
+      "Service": "sns.amazonaws.com"
+  },
+  "Action": "sqs:SendMessage",
+  "Resource": "arn:aws:sqs:ap-southeast-1:accid:MyQueue",
+  "Condition": {
+    "ArnEquals": {
+        "aws:SourceArn": "arn:aws:sns:ap-southeast-1:accid:MyNotification"
+    }
+  }
+}
+```
+
+Example Policy once added new statement
+```json
+{
+    "Version": "2008-10-17",
+    "Id": "__default_policy_ID",
+    "Statement": [{
+        "Sid": "__owner_statement",
+        "Effect": "Allow",
+        "Principal": {
+            "AWS": "arn:aws:iam::accid:root"
+        },
+        "Action": "SQS:*",
+        "Resource": "arn:aws:sqs:ap-southeast-1:accid:MyQueue"
+    },
+    {
+      "Sid": "AllowMsgFromTopic",
+      "Effect": "Allow",
+      "Principal": {
+          "Service": "sns.amazonaws.com"
+      },
+      "Action": "sqs:SendMessage",
+      "Resource": "arn:aws:sqs:ap-southeast-1:accid:MyQueue",
+      "Condition": {
+        "ArnEquals": {
+            "aws:SourceArn": "arn:aws:sns:ap-southeast-1:accid:MyTopic"
+        }
+      }
+  }]
+}
+```
+4. Push new message to the topic (Step 3: Publish a message to the topic)
+5. Check message inside the queue you subscibed.
+
+## Additional Resources
+
+[Amazon SNS Pricing](https://aws.amazon.com/sns/pricing/)
+
+[Publishing Messages in Amazon SNS](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/sns-examples-publishing-messages.html)
+
+[Code examples for Amazon SNS](https://docs.aws.amazon.com/sns/latest/dg/service_code_examples.html)
+
+[Subscribing an Amazon SQS queue to an Amazon SNS topic](https://docs.aws.amazon.com/sns/latest/dg/subscribe-sqs-queue-to-sns-topic.html)
