@@ -289,8 +289,7 @@ Notes:
 
 <summary><b>See Spoilers</b></summary>
 
-```node
-
+``` javascript
 // Load the AWS SDK for Node.js
 var AWS = require('aws-sdk');
 // Set the region
@@ -337,7 +336,6 @@ setInterval(function() {
       }
     });
 }, waitTimeSeconds*1000);
-
 ```
 
 </details>
