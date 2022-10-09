@@ -289,12 +289,8 @@ Notes:
 
 <summary><b>See Spoilers</b></summary>
 
-<<<<<<< HEAD:readme.md
-``` javascript
-=======
 ```node
 
->>>>>>> 5aa7d421c84a78af0351ef90013ea314931d9a12:messaging-node/sqs.md
 // Load the AWS SDK for Node.js
 var AWS = require('aws-sdk');
 // Set the region
