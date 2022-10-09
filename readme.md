@@ -322,6 +322,13 @@ setInterval(function() {
       if (err) {
         console.log("Receive Error", err);
       } else if (data.Messages) {
+        for (msg of data.Messages){
+          console.log(msg.Body)
+          // process msgs
+        }
+
+
+        //once complete delete the msg from q
         var deleteBatchParams = {
           QueueUrl: queueURL,
           Entries: data.Messages.map(item => { return { Id: item.MessageId, ReceiptHandle: item.ReceiptHandle } })
