@@ -111,7 +111,7 @@ var params = {
  AttributeNames: [
     "SentTimestamp"
  ],
- MaxNumberOfMessages: MAX_MESSAGE_COUNT,
+ MaxNumberOfMessages: 1,
  MessageAttributeNames: [
     "All"
  ],
