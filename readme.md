@@ -41,6 +41,24 @@ Reference
 
 **In your AWS Cloud9 environment,** create a Node.js module to call the `sendMessage` method. The callback returns the unique ID of the message.
 
+create directory for the lab
+
+``` bash
+mkdir sqs-lab && cd sqs-lab
+```
+
+install aws sdk for Nodejs for this directory
+
+``` bash
+npm i aws-sdk
+```
+
+create empty js file
+
+``` bash
+touch sendMessage.js
+```
+
 ``` javascript
 // Load the AWS SDK for Node.js
 var AWS = require('aws-sdk');
@@ -84,7 +102,7 @@ sqs.sendMessage(params, function(err, data) {
 
 **Update the following values in the code**: `REGION` and `SQS_QUEUE_URL`
 
-**Send a message to the queue** by running your module: `node sqs_sendmessage.js`
+**Send a message to the queue** by running your module: `node sendMessage.js`
 
 Reference
 
@@ -95,6 +113,12 @@ Reference
 Call the `receiveMessage` method to recieve only a maximum of `1` message from the queue by specifying an integer for request parameter `MaxNumberOfMessages`. The callback returns an array of Message objects from which you can retrieve `ReceiptHandle` for each message that you use to later delete that message.
 
 Create another JSON object containing the parameters needed to delete the message, which are the URL of the queue and the `ReceiptHandle` value. Call the `deleteMessage` method to delete the message you received.
+
+create empty js file
+
+``` bash
+touch receiveMessage.js
+```
 
 ``` javascript
 // Load the AWS SDK for Node.js
@@ -139,6 +163,8 @@ sqs.receiveMessage(params, function(err, data) {
   }
 });
 ```
+
+**recive a message from the queue** by running your module: `node receiveMessage.js`
 
 In this example, the parameters `MessageAttributeNames` specify receipt of all message attributes, as well as receipt of no more than 1 messages - `MaxNumberOfMessages` (max: `10` messages).
 
